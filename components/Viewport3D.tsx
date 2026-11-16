@@ -400,26 +400,47 @@ export default function Viewport3D({
 
           <div className="h-4 w-px bg-studio-700" />
 
-          <div className="flex items-center space-x-4 font-mono">
-            <div>
-              <span className="text-slate-400">US Size: </span>
-              <span className="text-white font-semibold">{blueprint.ringSizeUS}</span>
+          {blueprint.category === "pendant" ? (
+            <div className="flex items-center space-x-4 font-mono">
+              <div>
+                <span className="text-slate-400">Dimensions: </span>
+                <span className="text-white font-semibold">
+                  {blueprint.pendantWidth.toFixed(0)}×{blueprint.pendantHeight.toFixed(0)}×{blueprint.pendantThickness.toFixed(1)}mm
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400">Shape: </span>
+                <span className="text-white font-semibold capitalize">{blueprint.pendantShape}</span>
+              </div>
+              <div>
+                <span className="text-slate-400">Bail Ø: </span>
+                <span className="text-white font-semibold">{blueprint.pendantBailDiameter.toFixed(1)}mm</span>
+              </div>
             </div>
-            <div>
-              <span className="text-slate-400">Ø ID: </span>
-              <span className="text-white font-semibold">{blueprint.innerDiameter.toFixed(1)} mm</span>
+          ) : (
+            <div className="flex items-center space-x-4 font-mono">
+              <div>
+                <span className="text-slate-400">US Size: </span>
+                <span className="text-white font-semibold">{blueprint.ringSizeUS}</span>
+              </div>
+              <div>
+                <span className="text-slate-400">Ø ID: </span>
+                <span className="text-white font-semibold">{blueprint.innerDiameter.toFixed(1)} mm</span>
+              </div>
+              <div>
+                <span className="text-slate-400">Width: </span>
+                <span className="text-white font-semibold">{blueprint.bandWidth.toFixed(1)} mm</span>
+              </div>
             </div>
-            <div>
-              <span className="text-slate-400">Width: </span>
-              <span className="text-white font-semibold">{blueprint.bandWidth.toFixed(1)} mm</span>
-            </div>
-          </div>
+          )}
         </div>
 
         <div className="flex items-center space-x-4 font-mono">
           <div className="hidden sm:flex items-center space-x-2 bg-studio-850 px-2.5 py-1 rounded border border-studio-700/60">
             <span className="text-slate-400 text-[11px]">Metal Vol:</span>
-            <span className="text-gold-400 font-bold">{metrics.volumeMM3} mm³</span>
+            <span className="text-gold-400 font-bold">
+              {metrics.volumeMM3} mm³{metrics.isEstimatedVolume && <span className="text-[9px] text-slate-500 font-normal"> (est)</span>}
+            </span>
           </div>
 
           <div className="flex items-center space-x-2 bg-studio-850 px-2.5 py-1 rounded border border-studio-700/60">
@@ -429,10 +450,16 @@ export default function Viewport3D({
             </span>
           </div>
 
-          <div className="flex items-center space-x-2 bg-studio-850 px-2.5 py-1 rounded border border-studio-700/60">
-            <span className="text-slate-400 text-[11px]">Diamonds:</span>
-            <span className="text-cyan-300 font-bold">{metrics.totalCarats} ct</span>
-          </div>
+          {metrics.totalCarats > 0 ? (
+            <div className="flex items-center space-x-2 bg-studio-850 px-2.5 py-1 rounded border border-studio-700/60">
+              <span className="text-slate-400 text-[11px]">Gems:</span>
+              <span className="text-cyan-300 font-bold">{metrics.totalCarats} ct</span>
+            </div>
+          ) : (
+            <div className="hidden md:flex items-center space-x-2 bg-studio-850/60 px-2.5 py-1 rounded border border-studio-800">
+              <span className="text-slate-500 text-[11px]">Solid Metal</span>
+            </div>
+          )}
 
           <div
             className={`flex items-center space-x-1.5 px-3 py-1 rounded font-semibold text-[11px] border tracking-wider uppercase transition-all ${
@@ -442,19 +469,19 @@ export default function Viewport3D({
             }`}
             title={
               metrics.drcPass
-                ? "Lost-Wax Lost Investment DRC Check Passed: Wall thickness >= 1.2mm, spruing certified."
+                ? "Lost-Wax Investment DRC Check Passed: Wall thickness >= 1.1mm (or 0.8mm pendant), spruing validated."
                 : metrics.drcErrors.join("; ")
             }
           >
             {metrics.drcPass ? (
               <>
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>DRC Cast-Ready</span>
+                <span>DRC Validated</span>
               </>
             ) : (
               <>
                 <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                <span>DRC Warning ({metrics.drcErrors.length})</span>
+                <span>DRC Flagged ({metrics.drcErrors.length})</span>
               </>
             )}
           </div>

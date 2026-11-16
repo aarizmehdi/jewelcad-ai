@@ -652,6 +652,7 @@ export default function CADWorkstationPage() {
                     <option value="three-stone-ring">Three-Stone Trilogy</option>
                     <option value="signet-ring">Signet Ring</option>
                     <option value="bezel-ring">Bezel Ring</option>
+                    <option value="plain-band">Plain Band (Solid Metal)</option>
                     <option value="pendant">Bail Pendant</option>
                   </select>
                 </div>
@@ -709,191 +710,335 @@ export default function CADWorkstationPage() {
                   </>
                 )}
 
-                {/* Band Profile */}
-                <div className="space-y-1">
-                  <label className="text-[11px] text-slate-400">Band Profile Cross-Section</label>
-                  <select
-                    value={blueprint.bandProfile}
-                    onChange={(e) =>
-                      updateBlueprint((p) => ({
-                        ...p,
-                        bandProfile: e.target.value as BandProfile,
-                      }))
-                    }
-                    className="w-full px-2 py-1 bg-studio-950 rounded border border-studio-700 text-slate-200 text-xs focus:outline-none focus:border-gold-500"
-                  >
-                    <option value="court-comfort">Court / Comfort-Fit (Curved D)</option>
-                    <option value="flat-cigar">Flat Cigar (Modern Square)</option>
-                    <option value="knife-edge">Knife-Edge (Ridge Peak)</option>
-                    <option value="cathedral">Cathedral Arch Shoulders</option>
-                    <option value="split-shank">Split-Shank Dual Rails</option>
-                    <option value="twisted-rope">Twisted Rope Cable</option>
-                  </select>
-                </div>
-
-                {/* Band Width & Thickness */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-400">Band Width</span>
-                    <span className="font-mono text-white">{blueprint.bandWidth.toFixed(1)} mm</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1.5"
-                    max="9.0"
-                    step="0.1"
-                    value={blueprint.bandWidth}
-                    onChange={(e) =>
-                      updateBlueprint((p) => ({
-                        ...p,
-                        bandWidth: parseFloat(e.target.value),
-                      }))
-                    }
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-400">Band Thickness</span>
-                    <span className="font-mono text-white">{blueprint.bandThickness.toFixed(1)} mm</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1.0"
-                    max="3.5"
-                    step="0.1"
-                    value={blueprint.bandThickness}
-                    onChange={(e) =>
-                      updateBlueprint((p) => ({
-                        ...p,
-                        bandThickness: parseFloat(e.target.value),
-                      }))
-                    }
-                  />
-                  {blueprint.bandThickness < 1.2 && (
-                    <p className="text-[10px] text-rose-400">⚠️ Risk of porosity in lost-wax casting (&lt;1.2mm)</p>
-                  )}
-                </div>
-
-                {/* Cathedral Arch Height */}
-                {blueprint.bandProfile === "cathedral" && (
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-400">Cathedral Arch Rise</span>
-                      <span className="font-mono text-white">
-                        {blueprint.cathedralArchHeight.toFixed(1)} mm
-                      </span>
+                {/* PENDANT SPECIFIC CONTROLS */}
+                {blueprint.category === "pendant" ? (
+                  <div className="space-y-3 pt-1">
+                    {/* Pendant Silhouette Shape */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">Pendant Silhouette Shape</label>
+                      <select
+                        value={blueprint.pendantShape}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            pendantShape: e.target.value as any,
+                          }))
+                        }
+                        className="w-full px-2 py-1 bg-studio-950 rounded border border-studio-700 text-slate-200 text-xs focus:outline-none focus:border-gold-500 capitalize"
+                      >
+                        <option value="heart">Heart Shape (Bezier Curves)</option>
+                        <option value="oval">Oval Medallion</option>
+                        <option value="pear">Pear / Teardrop</option>
+                        <option value="round">Round Disc</option>
+                        <option value="octagon">Octagonal Frame</option>
+                      </select>
                     </div>
-                    <input
-                      type="range"
-                      min="1.0"
-                      max="6.0"
-                      step="0.2"
-                      value={blueprint.cathedralArchHeight}
-                      onChange={(e) =>
-                        updateBlueprint((p) => ({
-                          ...p,
-                          cathedralArchHeight: parseFloat(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
-                )}
 
-                {/* Split Shank Gap */}
-                {blueprint.bandProfile === "split-shank" && (
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-400">Split Shank Gap</span>
-                      <span className="font-mono text-white">{blueprint.splitShankGap.toFixed(1)} mm</span>
+                    {/* Width & Height */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-400">Pendant Width</span>
+                        <span className="font-mono text-white">{blueprint.pendantWidth.toFixed(1)} mm</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="12.0"
+                        max="48.0"
+                        step="1.0"
+                        value={blueprint.pendantWidth}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            pendantWidth: parseFloat(e.target.value),
+                          }))
+                        }
+                      />
                     </div>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="3.5"
-                      step="0.1"
-                      value={blueprint.splitShankGap}
-                      onChange={(e) =>
-                        updateBlueprint((p) => ({
-                          ...p,
-                          splitShankGap: parseFloat(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
-                )}
 
-                {/* Signet Plateau Width / Length */}
-                {blueprint.category === "signet-ring" && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-400">Pendant Height</span>
+                        <span className="font-mono text-white">{blueprint.pendantHeight.toFixed(1)} mm</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="14.0"
+                        max="56.0"
+                        step="1.0"
+                        value={blueprint.pendantHeight}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            pendantHeight: parseFloat(e.target.value),
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-400">Pendant Plate Thickness</span>
+                        <span className="font-mono text-white">{blueprint.pendantThickness.toFixed(2)} mm</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.8"
+                        max="3.5"
+                        step="0.1"
+                        value={blueprint.pendantThickness}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            pendantThickness: parseFloat(e.target.value),
+                          }))
+                        }
+                      />
+                    </div>
+
+                    {/* Bail Type & Diameter */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">Bail Suspension Style</label>
+                      <select
+                        value={blueprint.pendantBailType}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            pendantBailType: e.target.value as any,
+                          }))
+                        }
+                        className="w-full px-2 py-1 bg-studio-950 rounded border border-studio-700 text-slate-200 text-xs focus:outline-none focus:border-gold-500 capitalize"
+                      >
+                        <option value="triangular">Triangular Tapered Bail</option>
+                        <option value="tapered">Arched Bail Loop</option>
+                        <option value="ring">Jump Ring Bail</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-400">Bail Loop Diameter</span>
+                        <span className="font-mono text-white">
+                          {blueprint.pendantBailDiameter.toFixed(1)} mm
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="3.0"
+                        max="10.0"
+                        step="0.5"
+                        value={blueprint.pendantBailDiameter}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            pendantBailDiameter: parseFloat(e.target.value),
+                          }))
+                        }
+                      />
+                    </div>
+
+                    {/* Border Style */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">Outer Border Ornament</label>
+                      <select
+                        value={blueprint.pendantBorderStyle}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            pendantBorderStyle: e.target.value as any,
+                          }))
+                        }
+                        className="w-full px-2 py-1 bg-studio-950 rounded border border-studio-700 text-slate-200 text-xs focus:outline-none focus:border-gold-500 capitalize"
+                      >
+                        <option value="smooth">Smooth Polished Rim</option>
+                        <option value="scalloped">Scalloped Traditional Edge</option>
+                        <option value="beaded">Milgrain Beaded Rim</option>
+                      </select>
+                    </div>
+
+                    {/* Center Motif */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] text-slate-400">Center Decorative Motif</label>
+                      <select
+                        value={blueprint.pendantCenterMotif}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            pendantCenterMotif: e.target.value as any,
+                          }))
+                        }
+                        className="w-full px-2 py-1 bg-studio-950 rounded border border-studio-700 text-slate-200 text-xs focus:outline-none focus:border-gold-500 capitalize"
+                      >
+                        <option value="floral-clover">Floral Clover (4-Petal Relief)</option>
+                        <option value="filigree-star">Filigree 6-Point Star</option>
+                        <option value="gemstone">Faceted Gemstone Bezel Seat</option>
+                        <option value="plain">Solid Plain Medallion</option>
+                      </select>
+                    </div>
+                  </div>
+                ) : (
                   <>
+                    {/* Band Profile */}
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-400">Plateau Width</span>
-                        <span className="font-mono text-white">
-                          {blueprint.signetPlateauWidth.toFixed(1)} mm
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="8.0"
-                        max="20.0"
-                        step="0.5"
-                        value={blueprint.signetPlateauWidth}
+                      <label className="text-[11px] text-slate-400">Band Profile Cross-Section</label>
+                      <select
+                        value={blueprint.bandProfile}
                         onChange={(e) =>
                           updateBlueprint((p) => ({
                             ...p,
-                            signetPlateauWidth: parseFloat(e.target.value),
+                            bandProfile: e.target.value as BandProfile,
                           }))
                         }
-                      />
+                        className="w-full px-2 py-1 bg-studio-950 rounded border border-studio-700 text-slate-200 text-xs focus:outline-none focus:border-gold-500"
+                      >
+                        <option value="court-comfort">Court / Comfort-Fit (Curved D)</option>
+                        <option value="flat-cigar">Flat Cigar (Modern Square)</option>
+                        <option value="knife-edge">Knife-Edge (Ridge Peak)</option>
+                        <option value="cathedral">Cathedral Arch Shoulders</option>
+                        <option value="split-shank">Split-Shank Dual Rails</option>
+                        <option value="twisted-rope">Twisted Rope Cable</option>
+                      </select>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-400">Plateau Length</span>
-                        <span className="font-mono text-white">
-                          {blueprint.signetPlateauLength.toFixed(1)} mm
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="8.0"
-                        max="22.0"
-                        step="0.5"
-                        value={blueprint.signetPlateauLength}
-                        onChange={(e) =>
-                          updateBlueprint((p) => ({
-                            ...p,
-                            signetPlateauLength: parseFloat(e.target.value),
-                          }))
-                        }
-                      />
-                    </div>
-                  </>
-                )}
 
-                {/* Pendant Bail Diameter */}
-                {blueprint.category === "pendant" && (
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-400">Bail Loop Diameter</span>
-                      <span className="font-mono text-white">
-                        {blueprint.pendantBailDiameter.toFixed(1)} mm
-                      </span>
+                    {/* Band Width & Thickness */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-400">Band Width</span>
+                        <span className="font-mono text-white">{blueprint.bandWidth.toFixed(1)} mm</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1.5"
+                        max="9.0"
+                        step="0.1"
+                        value={blueprint.bandWidth}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            bandWidth: parseFloat(e.target.value),
+                          }))
+                        }
+                      />
                     </div>
-                    <input
-                      type="range"
-                      min="3.0"
-                      max="8.0"
-                      step="0.2"
-                      value={blueprint.pendantBailDiameter}
-                      onChange={(e) =>
-                        updateBlueprint((p) => ({
-                          ...p,
-                          pendantBailDiameter: parseFloat(e.target.value),
-                        }))
-                      }
-                    />
-                  </div>
+
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-slate-400">Band Thickness</span>
+                        <span className="font-mono text-white">{blueprint.bandThickness.toFixed(1)} mm</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1.0"
+                        max="3.5"
+                        step="0.1"
+                        value={blueprint.bandThickness}
+                        onChange={(e) =>
+                          updateBlueprint((p) => ({
+                            ...p,
+                            bandThickness: parseFloat(e.target.value),
+                          }))
+                        }
+                      />
+                      {blueprint.bandThickness < 1.2 && (
+                        <p className="text-[10px] text-rose-400">⚠️ Risk of porosity in lost-wax casting (&lt;1.2mm)</p>
+                      )}
+                    </div>
+
+                    {/* Cathedral Arch Height */}
+                    {blueprint.bandProfile === "cathedral" && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-400">Cathedral Arch Rise</span>
+                          <span className="font-mono text-white">
+                            {blueprint.cathedralArchHeight.toFixed(1)} mm
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1.0"
+                          max="6.0"
+                          step="0.2"
+                          value={blueprint.cathedralArchHeight}
+                          onChange={(e) =>
+                            updateBlueprint((p) => ({
+                              ...p,
+                              cathedralArchHeight: parseFloat(e.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* Split Shank Gap */}
+                    {blueprint.bandProfile === "split-shank" && (
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-400">Split Shank Gap</span>
+                          <span className="font-mono text-white">{blueprint.splitShankGap.toFixed(1)} mm</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="3.5"
+                          step="0.1"
+                          value={blueprint.splitShankGap}
+                          onChange={(e) =>
+                            updateBlueprint((p) => ({
+                              ...p,
+                              splitShankGap: parseFloat(e.target.value),
+                            }))
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {/* Signet Plateau Width / Length */}
+                    {blueprint.category === "signet-ring" && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-slate-400">Plateau Width</span>
+                            <span className="font-mono text-white">
+                              {blueprint.signetPlateauWidth.toFixed(1)} mm
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="8.0"
+                            max="20.0"
+                            step="0.5"
+                            value={blueprint.signetPlateauWidth}
+                            onChange={(e) =>
+                              updateBlueprint((p) => ({
+                                ...p,
+                                signetPlateauWidth: parseFloat(e.target.value),
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-[11px]">
+                            <span className="text-slate-400">Plateau Length</span>
+                            <span className="font-mono text-white">
+                              {blueprint.signetPlateauLength.toFixed(1)} mm
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="8.0"
+                            max="22.0"
+                            step="0.5"
+                            value={blueprint.signetPlateauLength}
+                            onChange={(e) =>
+                              updateBlueprint((p) => ({
+                                ...p,
+                                signetPlateauLength: parseFloat(e.target.value),
+                              }))
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             )}
@@ -911,6 +1056,13 @@ export default function CADWorkstationPage() {
 
             {expandedTabs.head && (
               <div className="space-y-3 pt-2">
+                {blueprint.category === "plain-band" ? (
+                  <div className="p-3 bg-studio-850 rounded-lg border border-studio-700/60 text-slate-400 text-xs text-center space-y-1">
+                    <p className="text-slate-300 font-medium">Solid Metal Band</p>
+                    <p className="text-[11px] text-slate-500">Plain bands do not feature head or prong assemblies.</p>
+                  </div>
+                ) : (
+                  <>
                 {/* Head Elevation */}
                 <div className="space-y-1">
                   <div className="flex justify-between text-[11px]">
@@ -1060,6 +1212,8 @@ export default function CADWorkstationPage() {
                     )}
                   </>
                 )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1076,6 +1230,13 @@ export default function CADWorkstationPage() {
 
             {expandedTabs.gems && (
               <div className="space-y-3 pt-2">
+                {blueprint.category === "plain-band" ? (
+                  <div className="p-3 bg-studio-850 rounded-lg border border-studio-700/60 text-slate-400 text-xs text-center space-y-1">
+                    <p className="text-slate-300 font-medium">No Gemstones</p>
+                    <p className="text-[11px] text-slate-500">Plain bands are cast in solid precious metal.</p>
+                  </div>
+                ) : (
+                  <>
                 {/* Gem Cut */}
                 <div className="space-y-1">
                   <label className="text-[11px] text-slate-400">Center Gemstone Cut</label>
@@ -1217,6 +1378,8 @@ export default function CADWorkstationPage() {
                     </div>
                   </>
                 )}
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -1233,6 +1396,13 @@ export default function CADWorkstationPage() {
 
             {expandedTabs.halo && (
               <div className="space-y-3 pt-2">
+                {blueprint.category === "plain-band" || blueprint.category === "pendant" ? (
+                  <div className="p-3 bg-studio-850 rounded-lg border border-studio-700/60 text-slate-400 text-xs text-center space-y-1">
+                    <p className="text-slate-300 font-medium">Not Applicable</p>
+                    <p className="text-[11px] text-slate-500">Halo and shank pavé are configured for rings with stone settings.</p>
+                  </div>
+                ) : (
+                  <>
                 {/* Halo Toggle */}
                 <div className="flex items-center justify-between p-2 rounded bg-studio-850 border border-studio-700/60">
                   <span className="text-[11px] text-slate-300 font-medium">Surrounding Gem Halo</span>
@@ -1298,51 +1468,49 @@ export default function CADWorkstationPage() {
                 )}
 
                 {/* Shank Pavé */}
-                {blueprint.category !== "pendant" && (
-                  <>
-                    <div className="space-y-1 pt-2 border-t border-studio-800">
-                      <div className="flex justify-between text-[11px]">
-                        <span className="text-slate-400">Pavé Stones Per Shoulder</span>
-                        <span className="font-mono text-white">{blueprint.paveCountPerSide}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="14"
-                        step="1"
-                        value={blueprint.paveCountPerSide}
-                        onChange={(e) =>
-                          updateBlueprint((p) => ({
-                            ...p,
-                            paveCountPerSide: parseInt(e.target.value, 10),
-                          }))
-                        }
-                      />
-                    </div>
+                <div className="space-y-1 pt-2 border-t border-studio-800">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-slate-400">Pavé Stones Per Shoulder</span>
+                    <span className="font-mono text-white">{blueprint.paveCountPerSide}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="14"
+                    step="1"
+                    value={blueprint.paveCountPerSide}
+                    onChange={(e) =>
+                      updateBlueprint((p) => ({
+                        ...p,
+                        paveCountPerSide: parseInt(e.target.value, 10),
+                      }))
+                    }
+                  />
+                </div>
 
-                    {blueprint.paveCountPerSide > 0 && (
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-400">Pavé Stone Diameter</span>
-                          <span className="font-mono text-white">
-                            {blueprint.paveStoneDiameter.toFixed(2)} mm
-                          </span>
-                        </div>
-                        <input
-                          type="range"
-                          min="1.0"
-                          max="2.2"
-                          step="0.05"
-                          value={blueprint.paveStoneDiameter}
-                          onChange={(e) =>
-                            updateBlueprint((p) => ({
-                              ...p,
-                              paveStoneDiameter: parseFloat(e.target.value),
-                            }))
-                          }
-                        />
-                      </div>
-                    )}
+                {blueprint.paveCountPerSide > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-400">Pavé Stone Diameter</span>
+                      <span className="font-mono text-white">
+                        {blueprint.paveStoneDiameter.toFixed(2)} mm
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1.0"
+                      max="2.2"
+                      step="0.05"
+                      value={blueprint.paveStoneDiameter}
+                      onChange={(e) =>
+                        updateBlueprint((p) => ({
+                          ...p,
+                          paveStoneDiameter: parseFloat(e.target.value),
+                        }))
+                      }
+                    />
+                  </div>
+                )}
                   </>
                 )}
               </div>

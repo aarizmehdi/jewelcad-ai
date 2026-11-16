@@ -51,6 +51,7 @@ export interface MetalMetricsResult {
   drcPass: boolean;
   drcErrors: string[];
   drcWarnings: string[];
+  isEstimatedVolume: boolean;
 }
 
 /**
@@ -74,20 +75,28 @@ export function calculateSceneMetalMetrics(
     });
   }
 
+  let isEstimatedVolume = false;
+
   // Fallback geometric estimate if scene hasn't rendered yet
   if (totalVolumeMM3 === 0) {
+    isEstimatedVolume = true;
     if (spec.category === "pendant") {
       const h = spec.pendantHeight || 32;
       const w = spec.pendantWidth || 28;
       const t = spec.pendantThickness || 1.4;
       // Medallion area factor ~ 0.65 for heart/pear shape
       totalVolumeMM3 = (h * w * 0.65 * t) + 45; // +45 mm³ for bail & jump ring
+    } else if (spec.category === "plain-band") {
+      const ringRadius = spec.innerDiameter / 2 + spec.bandThickness / 2;
+      const ringPerimeter = 2 * Math.PI * ringRadius;
+      const bandSectionArea = spec.bandWidth * spec.bandThickness * 0.85;
+      totalVolumeMM3 = ringPerimeter * bandSectionArea;
     } else {
       const ringRadius = spec.innerDiameter / 2 + spec.bandThickness / 2;
       const ringPerimeter = 2 * Math.PI * ringRadius;
       const bandSectionArea = spec.bandWidth * spec.bandThickness * 0.85;
       const shankVol = ringPerimeter * bandSectionArea;
-      const headVol = (spec.headElevation * spec.prongCount * Math.PI * Math.pow(spec.prongThickness / 2, 2)) + 30;
+      const headVol = (spec.headElevation * spec.prongCount * Math.PI * Math.pow(spec.prongThickness / 2, 2)) + (spec.bezelEnabled ? 20 : 15);
       totalVolumeMM3 = shankVol + headVol;
     }
   }
@@ -97,37 +106,70 @@ export function calculateSceneMetalMetrics(
   const weightGrams = volumeCM3 * alloyInfo.density;
 
   // Carat Weight Estimates based on gemological formulas:
-  // Round brilliant: length * width * depth * 0.0061
-  const centerCarat = spec.gemLength * spec.gemWidth * spec.gemDepth * 0.0061;
-  const flankCarat = spec.threeStoneEnabled ? 2 * (Math.pow(spec.flankGemSize, 3) * 0.6 * 0.0061) : 0;
-  const haloPerimeter = Math.PI * ((spec.gemLength + spec.gemWidth) / 2 + spec.haloGapFromCenter * 2 + spec.haloStoneDiameter);
-  const haloCount = spec.haloEnabled ? Math.max(10, Math.floor(haloPerimeter / (spec.haloStoneDiameter * 1.08))) : 0;
-  const haloCarat = haloCount * (Math.pow(spec.haloStoneDiameter, 3) * 0.62 * 0.0061);
-  const paveCarat = (spec.paveCountPerSide * 2) * (Math.pow(spec.paveStoneDiameter, 3) * 0.62 * 0.0061);
+  // Check if design actually has center stone
+  const isPlainBand = spec.category === "plain-band" ||
+    (spec.prongCount === 0 && !spec.bezelEnabled && !spec.haloEnabled && !spec.threeStoneEnabled && spec.category !== "pendant");
+  const isPendantWithGem = spec.category === "pendant" && spec.pendantCenterMotif === "gemstone";
+
+  let centerCarat = 0;
+  let flankCarat = 0;
+  let haloCarat = 0;
+  let paveCarat = 0;
+
+  if (!isPlainBand) {
+    if (spec.category === "pendant") {
+      if (isPendantWithGem) {
+        const gemSize = Math.min(spec.pendantWidth, spec.pendantHeight) * 0.2;
+        centerCarat = gemSize * gemSize * (gemSize * 0.6) * 0.0061;
+      }
+    } else {
+      if (spec.prongCount > 0 || spec.bezelEnabled) {
+        centerCarat = spec.gemLength * spec.gemWidth * spec.gemDepth * 0.0061;
+      }
+      flankCarat = spec.threeStoneEnabled ? 2 * (Math.pow(spec.flankGemSize, 3) * 0.6 * 0.0061) : 0;
+      const haloPerimeter = Math.PI * ((spec.gemLength + spec.gemWidth) / 2 + spec.haloGapFromCenter * 2 + spec.haloStoneDiameter);
+      const haloCount = spec.haloEnabled ? Math.max(10, Math.floor(haloPerimeter / (spec.haloStoneDiameter * 1.08))) : 0;
+      haloCarat = haloCount * (Math.pow(spec.haloStoneDiameter, 3) * 0.62 * 0.0061);
+      paveCarat = (spec.paveCountPerSide * 2) * (Math.pow(spec.paveStoneDiameter, 3) * 0.62 * 0.0061);
+    }
+  }
+
   const totalCarats = centerCarat + flankCarat + haloCarat + paveCarat;
 
   // DRC (Design Rule Check) - Lost-Wax Casting Standards
   const drcErrors: string[] = [];
   const drcWarnings: string[] = [];
 
-  if (spec.bandThickness < 1.1) {
-    drcErrors.push("Band thickness < 1.1mm risks porosity failure during investment casting");
-  } else if (spec.bandThickness < 1.3) {
-    drcWarnings.push("Band thickness < 1.3mm is thin for everyday wear");
-  }
+  if (spec.category === "pendant") {
+    if (spec.pendantThickness < 0.8) {
+      drcErrors.push("Pendant thickness < 0.8mm risks structural warping during lost-wax burnout");
+    } else if (spec.pendantThickness < 1.0) {
+      drcWarnings.push("Pendant thickness < 1.0mm is thin for hand engraving or stone setting");
+    }
+    if (spec.pendantBailDiameter < 2.5) {
+      drcErrors.push("Bail loop < 2.5mm will not accept standard commercial chain jump rings");
+    }
+  } else {
+    // Ring DRC
+    if (spec.bandThickness < 1.1) {
+      drcErrors.push("Band thickness < 1.1mm risks porosity failure during investment casting");
+    } else if (spec.bandThickness < 1.3) {
+      drcWarnings.push("Band thickness < 1.3mm is thin for everyday wear");
+    }
 
-  if (spec.bandWidth < 1.4) {
-    drcErrors.push("Band width < 1.4mm is too fragile for casting sprue attachment");
-  }
+    if (spec.bandWidth < 1.4) {
+      drcErrors.push("Band width < 1.4mm is too fragile for casting sprue attachment");
+    }
 
-  if (!spec.bezelEnabled && spec.prongCount > 0 && spec.prongThickness < 0.75) {
-    drcErrors.push("Prong thickness < 0.75mm will fail during diamond setting");
-  } else if (!spec.bezelEnabled && spec.prongCount > 0 && spec.prongThickness < 0.85) {
-    drcWarnings.push("Prongs < 0.85mm require careful laser welding");
-  }
+    if (!spec.bezelEnabled && spec.prongCount > 0 && spec.prongThickness < 0.75) {
+      drcErrors.push("Prong thickness < 0.75mm will fail during diamond setting");
+    } else if (!spec.bezelEnabled && spec.prongCount > 0 && spec.prongThickness < 0.85) {
+      drcWarnings.push("Prongs < 0.85mm require careful laser welding");
+    }
 
-  if (spec.bezelEnabled && spec.bezelWallThickness < 0.5) {
-    drcErrors.push("Bezel wall < 0.5mm will tear during burnishing");
+    if (spec.bezelEnabled && spec.bezelWallThickness < 0.5) {
+      drcErrors.push("Bezel wall < 0.5mm will tear during burnishing");
+    }
   }
 
   const drcPass = drcErrors.length === 0;
@@ -143,6 +185,7 @@ export function calculateSceneMetalMetrics(
     drcPass,
     drcErrors,
     drcWarnings,
+    isEstimatedVolume,
   };
 }
 

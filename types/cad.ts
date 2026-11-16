@@ -4,6 +4,7 @@ export type JewelryCategory =
   | "three-stone-ring"
   | "signet-ring"
   | "bezel-ring"
+  | "plain-band"
   | "pendant";
 
 export type BandProfile =
@@ -205,6 +206,28 @@ export function diameterMMToUSSize(diameter: number): number {
 }
 
 export const INDUSTRY_PRESETS: Array<{ id: string; name: string; subtitle: string; category: JewelryCategory; blueprint: Partial<JewelryBlueprint> }> = [
+  {
+    id: "classic-wedding-band",
+    name: "Classic Court Wedding Band",
+    subtitle: "Heavy comfort-fit solid gold wedding band with no gemstones",
+    category: "plain-band",
+    blueprint: {
+      ...DEFAULT_BLUEPRINT,
+      designName: "Classic Court 18K Yellow Gold Wedding Band",
+      category: "plain-band",
+      bandProfile: "court-comfort",
+      bandWidth: 4.0,
+      bandThickness: 1.8,
+      headElevation: 0,
+      prongCount: 0,
+      bezelEnabled: false,
+      haloEnabled: false,
+      threeStoneEnabled: false,
+      paveCountPerSide: 0,
+      metalAlloy: "18k-yellow",
+      metalColorHex: "#E5B824",
+    },
+  },
   {
     id: "cathedral-halo",
     name: "Imperial Cathedral Halo",

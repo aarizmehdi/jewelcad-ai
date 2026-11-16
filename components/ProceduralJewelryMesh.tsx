@@ -6,6 +6,8 @@ import {
   GEMSTONE_SPECS,
   ALLOY_DENSITIES,
 } from "@/types/cad";
+import { buildPendantGeometry } from "@/lib/geometry/pendant-builder";
+import { buildSignetGeometry } from "@/lib/geometry/signet-builder";
 
 // ---------------------------------------------------------------------------
 // 1. HIGH PRECISION PROCEDURAL FACETED GEMSTONE GEOMETRY
@@ -169,9 +171,9 @@ export function createShankGeometry(blueprint: JewelryBlueprint): THREE.BufferGe
   } = blueprint;
 
   if (category === "pendant") {
-    const bailRadius = pendantBailDiameter / 2;
-    const tubeRadius = Math.min(bandThickness, bandWidth) / 2;
-    return new THREE.TorusGeometry(bailRadius, tubeRadius, 24, 48);
+    // Pendant geometry is now handled by buildPendantGeometry in the master builder.
+    // Return an empty geometry here as fallback — the master builder skips this path.
+    return new THREE.BufferGeometry();
   }
 
   if (category === "signet-ring") {
@@ -330,6 +332,74 @@ export function buildProceduralJewelryGroup(
 ) {
   const { waxCastMode = false, wireframe = false, clippingPlane = null } = options;
 
+  // ---------- PENDANT: delegate to dedicated builder ----------
+  if (blueprint.category === "pendant") {
+    const pendantResult = buildPendantGeometry(blueprint, options);
+    const rootGroup = pendantResult.group;
+
+    // Map pendant part groups to the standard SelectablePart structure
+    const partGroups: Record<SelectablePart, THREE.Group> = {
+      "none": rootGroup,
+      "shank": pendantResult.partGroups["bail"] || new THREE.Group(),
+      "head-assembly": pendantResult.partGroups["motif"] || new THREE.Group(),
+      "center-stone": new THREE.Group(),
+      "halo": new THREE.Group(),
+      "side-stones": new THREE.Group(),
+    };
+
+    // Add unmapped groups to root
+    rootGroup.add(partGroups["center-stone"]);
+    rootGroup.add(partGroups["halo"]);
+    rootGroup.add(partGroups["side-stones"]);
+
+    // Apply part transforms
+    if (blueprint.partTransforms) {
+      for (const [key, tr] of Object.entries(blueprint.partTransforms) as [SelectablePart, TransformOffset][]) {
+        const grp = partGroups[key];
+        if (grp && tr) {
+          grp.position.set(tr.position[0], tr.position[1], tr.position[2]);
+          grp.rotation.set(tr.rotation[0], tr.rotation[1], tr.rotation[2]);
+          grp.scale.set(tr.scale[0], tr.scale[1], tr.scale[2]);
+        }
+      }
+    }
+
+    return { rootGroup, partGroups };
+  }
+
+  // ---------- SIGNET: delegate to dedicated builder ----------
+  if (blueprint.category === "signet-ring") {
+    const signetResult = buildSignetGeometry(blueprint, options);
+    const rootGroup = signetResult.group;
+
+    const partGroups: Record<SelectablePart, THREE.Group> = {
+      "none": rootGroup,
+      "shank": signetResult.partGroups["shank"] || new THREE.Group(),
+      "head-assembly": signetResult.partGroups["signet-face"] || new THREE.Group(),
+      "center-stone": signetResult.partGroups["inlay"] || new THREE.Group(),
+      "halo": new THREE.Group(),
+      "side-stones": new THREE.Group(),
+    };
+
+    rootGroup.add(partGroups["halo"]);
+    rootGroup.add(partGroups["side-stones"]);
+
+    if (blueprint.partTransforms) {
+      for (const [key, tr] of Object.entries(blueprint.partTransforms) as [SelectablePart, TransformOffset][]) {
+        const grp = partGroups[key];
+        if (grp && tr) {
+          grp.position.set(tr.position[0], tr.position[1], tr.position[2]);
+          grp.rotation.set(tr.rotation[0], tr.rotation[1], tr.rotation[2]);
+          grp.scale.set(tr.scale[0], tr.scale[1], tr.scale[2]);
+        }
+      }
+    }
+
+    return { rootGroup, partGroups };
+  }
+
+  // ---------- STANDARD RINGS (solitaire, halo, three-stone, bezel, plain-band) ----------
+
   const rootGroup = new THREE.Group();
   rootGroup.name = "jewelcad-root";
 
@@ -379,27 +449,40 @@ export function buildProceduralJewelryGroup(
 
   const gemSpec = GEMSTONE_SPECS[blueprint.gemstoneType] || GEMSTONE_SPECS["diamond"];
   const gemColor = blueprint.gemColorHex || gemSpec.defaultHex;
+  const isOpaqueGem = blueprint.gemstoneType === "black-onyx";
 
   const gemMaterial = waxCastMode
     ? new THREE.MeshBasicMaterial({ visible: false })
-    : new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(gemColor),
-        roughness: 0.05,
-        metalness: 0.0,
-        transmission: 0.95,
-        ior: gemSpec.refractiveIndex,
-        thickness: 3.5,
-        attenuationColor: new THREE.Color(gemColor),
-        attenuationDistance: 5.0,
-        envMapIntensity: 2.8,
-        flatShading: true,
-        side: THREE.DoubleSide,
-        wireframe,
-        clippingPlanes: clippingPlane ? [clippingPlane] : [],
-      });
+    : isOpaqueGem
+      ? new THREE.MeshStandardMaterial({
+          color: new THREE.Color(gemColor),
+          roughness: 0.3,
+          metalness: 0.1,
+          wireframe,
+          clippingPlanes: clippingPlane ? [clippingPlane] : [],
+        })
+      : new THREE.MeshPhysicalMaterial({
+          color: new THREE.Color(gemColor),
+          roughness: 0.05,
+          metalness: 0.0,
+          transmission: 0.95,
+          ior: gemSpec.refractiveIndex,
+          thickness: 3.5,
+          attenuationColor: new THREE.Color(gemColor),
+          attenuationDistance: 5.0,
+          envMapIntensity: 2.8,
+          flatShading: true,
+          side: THREE.DoubleSide,
+          wireframe,
+          clippingPlanes: clippingPlane ? [clippingPlane] : [],
+        });
 
-  const baseY = blueprint.category === "pendant" ? 0 : blueprint.innerDiameter / 2 + blueprint.bandThickness;
+  const baseY = blueprint.innerDiameter / 2 + blueprint.bandThickness;
   const girdleY = baseY + blueprint.headElevation;
+
+  // Determine if this design should have a gemstone
+  const isPlainBand = blueprint.category === "plain-band" ||
+    (blueprint.prongCount === 0 && !blueprint.bezelEnabled && !blueprint.haloEnabled && !blueprint.threeStoneEnabled);
 
   // 1. Shank Mesh
   const shankGeom = createShankGeometry(blueprint);
@@ -411,7 +494,7 @@ export function buildProceduralJewelryGroup(
   partGroups["shank"].add(shankMesh);
 
   // Shank Pavé Melee Stones
-  if (!waxCastMode && blueprint.category !== "pendant" && blueprint.paveCountPerSide > 0) {
+  if (!waxCastMode && !isPlainBand && blueprint.paveCountPerSide > 0) {
     const rCenter = blueprint.innerDiameter / 2 + blueprint.bandThickness;
     const startAngle = Math.PI * 0.42;
     const stepAngle = (blueprint.paveStoneDiameter * 1.15) / rCenter;
@@ -442,114 +525,116 @@ export function buildProceduralJewelryGroup(
     }
   }
 
-  // 2. Head & Basket Assembly
-  if (blueprint.bezelEnabled) {
-    // Bezel collar
-    const halfL = blueprint.gemLength / 2;
-    const halfW = blueprint.gemWidth / 2;
-    const wall = blueprint.bezelWallThickness;
-    const segs = 32;
-    const verts: number[] = [];
-    const idxs: number[] = [];
-    const yBot = baseY;
-    const yTop = girdleY + 0.5;
+  // 2. Head & Basket Assembly — ONLY if not a plain band
+  if (!isPlainBand) {
+    if (blueprint.bezelEnabled) {
+      // Bezel collar
+      const halfL = blueprint.gemLength / 2;
+      const halfW = blueprint.gemWidth / 2;
+      const wall = blueprint.bezelWallThickness;
+      const segs = 32;
+      const verts: number[] = [];
+      const idxs: number[] = [];
+      const yBot = baseY;
+      const yTop = girdleY + 0.5;
 
-    for (let i = 0; i <= segs; i++) {
-      const angle = (i / segs) * Math.PI * 2;
-      const cos = Math.cos(angle);
-      const sin = Math.sin(angle);
-      verts.push(cos * halfL, yBot, sin * halfW);
-      verts.push(cos * (halfL + wall), yBot, sin * (halfW + wall));
-      verts.push(cos * halfL, yTop, sin * halfW);
-      verts.push(cos * (halfL + wall * 0.75), yTop, sin * (halfW + wall * 0.75));
-    }
+      for (let i = 0; i <= segs; i++) {
+        const angle = (i / segs) * Math.PI * 2;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        verts.push(cos * halfL, yBot, sin * halfW);
+        verts.push(cos * (halfL + wall), yBot, sin * (halfW + wall));
+        verts.push(cos * halfL, yTop, sin * halfW);
+        verts.push(cos * (halfL + wall * 0.75), yTop, sin * (halfW + wall * 0.75));
+      }
 
-    for (let i = 0; i < segs; i++) {
-      const b = i * 4;
-      const nb = (i + 1) * 4;
-      idxs.push(b + 1, nb + 1, b + 3);
-      idxs.push(nb + 1, nb + 3, b + 3);
-      idxs.push(b + 2, b + 3, nb + 2);
-      idxs.push(nb + 2, b + 3, nb + 3);
-      idxs.push(b + 0, b + 2, nb + 0);
-      idxs.push(nb + 0, b + 2, nb + 2);
-    }
+      for (let i = 0; i < segs; i++) {
+        const b = i * 4;
+        const nb = (i + 1) * 4;
+        idxs.push(b + 1, nb + 1, b + 3);
+        idxs.push(nb + 1, nb + 3, b + 3);
+        idxs.push(b + 2, b + 3, nb + 2);
+        idxs.push(nb + 2, b + 3, nb + 3);
+        idxs.push(b + 0, b + 2, nb + 0);
+        idxs.push(nb + 0, b + 2, nb + 2);
+      }
 
-    const bezelGeom = new THREE.BufferGeometry();
-    bezelGeom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-    bezelGeom.setIndex(idxs);
-    bezelGeom.computeVertexNormals();
+      const bezelGeom = new THREE.BufferGeometry();
+      bezelGeom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+      bezelGeom.setIndex(idxs);
+      bezelGeom.computeVertexNormals();
 
-    const bezelMesh = new THREE.Mesh(bezelGeom, metalMaterial);
-    bezelMesh.userData = { isMetal: true, part: "head-assembly" };
-    bezelMesh.castShadow = true;
-    partGroups["head-assembly"].add(bezelMesh);
-  } else if (blueprint.prongCount > 0) {
-    // Prongs
-    const prongRadius = blueprint.prongThickness / 2;
-    const halfL = (blueprint.gemLength / 2) * blueprint.prongSpread;
-    const halfW = (blueprint.gemWidth / 2) * blueprint.prongSpread;
+      const bezelMesh = new THREE.Mesh(bezelGeom, metalMaterial);
+      bezelMesh.userData = { isMetal: true, part: "head-assembly" };
+      bezelMesh.castShadow = true;
+      partGroups["head-assembly"].add(bezelMesh);
+    } else if (blueprint.prongCount > 0) {
+      // Prongs
+      const prongRadius = blueprint.prongThickness / 2;
+      const halfL = (blueprint.gemLength / 2) * blueprint.prongSpread;
+      const halfW = (blueprint.gemWidth / 2) * blueprint.prongSpread;
 
-    for (let i = 0; i < blueprint.prongCount; i++) {
-      const angle = (i / blueprint.prongCount) * Math.PI * 2 + Math.PI / blueprint.prongCount;
-      const targetX = Math.cos(angle) * halfL;
-      const targetZ = Math.sin(angle) * halfW;
-      const startX = targetX * 0.55;
-      const startZ = targetZ * 0.55;
+      for (let i = 0; i < blueprint.prongCount; i++) {
+        const angle = (i / blueprint.prongCount) * Math.PI * 2 + Math.PI / blueprint.prongCount;
+        const targetX = Math.cos(angle) * halfL;
+        const targetZ = Math.sin(angle) * halfW;
+        const startX = targetX * 0.55;
+        const startZ = targetZ * 0.55;
 
-      const pStart = new THREE.Vector3(startX, baseY, startZ);
-      const pGirdle = new THREE.Vector3(targetX, girdleY, targetZ);
+        const pStart = new THREE.Vector3(startX, baseY, startZ);
+        const pGirdle = new THREE.Vector3(targetX, girdleY, targetZ);
 
-      let tipInward = 0.45;
-      if (blueprint.prongTipStyle === "claw") tipInward = 0.65;
-      else if (blueprint.prongTipStyle === "tab") tipInward = 0.35;
+        let tipInward = 0.45;
+        if (blueprint.prongTipStyle === "claw") tipInward = 0.65;
+        else if (blueprint.prongTipStyle === "tab") tipInward = 0.35;
 
-      const pTip = new THREE.Vector3(
-        targetX * (1 - tipInward * 0.3),
-        girdleY + blueprint.prongThickness * 0.85,
-        targetZ * (1 - tipInward * 0.3)
-      );
+        const pTip = new THREE.Vector3(
+          targetX * (1 - tipInward * 0.3),
+          girdleY + blueprint.prongThickness * 0.85,
+          targetZ * (1 - tipInward * 0.3)
+        );
 
-      const curve = new THREE.CatmullRomCurve3([pStart, pGirdle, pTip]);
-      const tubeGeom = new THREE.TubeGeometry(curve, 16, prongRadius, 10, false);
-      const pMesh = new THREE.Mesh(tubeGeom, metalMaterial);
-      pMesh.userData = { isMetal: true, part: "head-assembly" };
-      pMesh.castShadow = true;
-      partGroups["head-assembly"].add(pMesh);
-    }
+        const curve = new THREE.CatmullRomCurve3([pStart, pGirdle, pTip]);
+        const tubeGeom = new THREE.TubeGeometry(curve, 16, prongRadius, 10, false);
+        const pMesh = new THREE.Mesh(tubeGeom, metalMaterial);
+        pMesh.userData = { isMetal: true, part: "head-assembly" };
+        pMesh.castShadow = true;
+        partGroups["head-assembly"].add(pMesh);
+      }
 
-    // Gallery rails
-    if (blueprint.galleryRailEnabled) {
-      const railRadius = (blueprint.prongThickness * 0.75) / 2;
-      const midY = baseY + blueprint.headElevation * 0.48;
-      const midScaleL = (blueprint.gemLength / 2) * blueprint.prongSpread * 0.78;
-      const midScaleW = (blueprint.gemWidth / 2) * blueprint.prongSpread * 0.78;
+      // Gallery rails
+      if (blueprint.galleryRailEnabled) {
+        const railRadius = (blueprint.prongThickness * 0.75) / 2;
+        const midY = baseY + blueprint.headElevation * 0.48;
+        const midScaleL = (blueprint.gemLength / 2) * blueprint.prongSpread * 0.78;
+        const midScaleW = (blueprint.gemWidth / 2) * blueprint.prongSpread * 0.78;
 
-      const midCurve = new THREE.EllipseCurve(0, 0, midScaleL, midScaleW, 0, 2 * Math.PI, false, 0);
-      const midPoints = midCurve.getPoints(32).map((p) => new THREE.Vector3(p.x, midY, p.y));
-      const midPath = new THREE.CatmullRomCurve3(midPoints, true);
-      const midGeom = new THREE.TubeGeometry(midPath, 32, railRadius, 8, true);
-      const midMesh = new THREE.Mesh(midGeom, metalMaterial);
-      midMesh.userData = { isMetal: true, part: "head-assembly" };
-      midMesh.castShadow = true;
-      partGroups["head-assembly"].add(midMesh);
+        const midCurve = new THREE.EllipseCurve(0, 0, midScaleL, midScaleW, 0, 2 * Math.PI, false, 0);
+        const midPoints = midCurve.getPoints(32).map((p) => new THREE.Vector3(p.x, midY, p.y));
+        const midPath = new THREE.CatmullRomCurve3(midPoints, true);
+        const midGeom = new THREE.TubeGeometry(midPath, 32, railRadius, 8, true);
+        const midMesh = new THREE.Mesh(midGeom, metalMaterial);
+        midMesh.userData = { isMetal: true, part: "head-assembly" };
+        midMesh.castShadow = true;
+        partGroups["head-assembly"].add(midMesh);
 
-      // Base collet
-      const baseScaleL = (blueprint.gemLength / 2) * blueprint.prongSpread * 0.52;
-      const baseScaleW = (blueprint.gemWidth / 2) * blueprint.prongSpread * 0.52;
-      const baseCurve = new THREE.EllipseCurve(0, 0, baseScaleL, baseScaleW, 0, 2 * Math.PI, false, 0);
-      const basePoints = baseCurve.getPoints(32).map((p) => new THREE.Vector3(p.x, baseY + 0.3, p.y));
-      const basePath = new THREE.CatmullRomCurve3(basePoints, true);
-      const baseGeom = new THREE.TubeGeometry(basePath, 32, railRadius, 8, true);
-      const baseMesh = new THREE.Mesh(baseGeom, metalMaterial);
-      baseMesh.userData = { isMetal: true, part: "head-assembly" };
-      baseMesh.castShadow = true;
-      partGroups["head-assembly"].add(baseMesh);
+        // Base collet
+        const baseScaleL = (blueprint.gemLength / 2) * blueprint.prongSpread * 0.52;
+        const baseScaleW = (blueprint.gemWidth / 2) * blueprint.prongSpread * 0.52;
+        const baseCurve = new THREE.EllipseCurve(0, 0, baseScaleL, baseScaleW, 0, 2 * Math.PI, false, 0);
+        const basePoints = baseCurve.getPoints(32).map((p) => new THREE.Vector3(p.x, baseY + 0.3, p.y));
+        const basePath = new THREE.CatmullRomCurve3(basePoints, true);
+        const baseGeom = new THREE.TubeGeometry(basePath, 32, railRadius, 8, true);
+        const baseMesh = new THREE.Mesh(baseGeom, metalMaterial);
+        baseMesh.userData = { isMetal: true, part: "head-assembly" };
+        baseMesh.castShadow = true;
+        partGroups["head-assembly"].add(baseMesh);
+      }
     }
   }
 
-  // 3. Center Gemstone
-  if (!waxCastMode) {
+  // 3. Center Gemstone — ONLY if not a plain band and not wax-cast mode
+  if (!waxCastMode && !isPlainBand) {
     const centerGeom = createFacetedGemstoneGeometry(
       blueprint.gemCut,
       blueprint.gemLength,
@@ -564,8 +649,8 @@ export function buildProceduralJewelryGroup(
     partGroups["center-stone"].add(centerMesh);
   }
 
-  // 4. Halo Assembly
-  if (blueprint.haloEnabled) {
+  // 4. Halo Assembly — ONLY if enabled and not plain band
+  if (blueprint.haloEnabled && !isPlainBand) {
     const halfL = blueprint.gemLength / 2 + blueprint.haloGapFromCenter + blueprint.haloStoneDiameter / 2;
     const halfW = blueprint.gemWidth / 2 + blueprint.haloGapFromCenter + blueprint.haloStoneDiameter / 2;
 
@@ -607,8 +692,8 @@ export function buildProceduralJewelryGroup(
     }
   }
 
-  // 5. Three-Stone Flanking Assembly
-  if (blueprint.threeStoneEnabled) {
+  // 5. Three-Stone Flanking Assembly — ONLY if enabled and not plain band
+  if (blueprint.threeStoneEnabled && !isPlainBand) {
     const flankDepth = blueprint.flankGemSize * 0.62;
     const distanceX = blueprint.gemLength / 2 + blueprint.flankGemSize / 2 + 0.35;
     const tiltRad = (blueprint.flankTiltAngleDeg * Math.PI) / 180;
